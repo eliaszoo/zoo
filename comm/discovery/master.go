@@ -70,7 +70,7 @@ func (m *Master) delNode(node string) {
     delete(m.nodes, node)
 }
 
-func (m *Master) watch() {
+func (m *Master) Watch() {
     watcher := m.kapi.Watcher(m.key, &client.WatcherOptions{
         Recursive: true,
     })

@@ -10,7 +10,7 @@ type agent struct {
 	backend  *Backend
 }
 
-func (a *agent) Run() {
+func (a *agent) run() {
 	for {
 		data, err := a.conn.ReadMsg()
 		if err != nil {

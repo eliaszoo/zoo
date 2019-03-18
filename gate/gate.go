@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/eliaszoo/zoo/comm/network"
+	d "github.com/eliaszoo/zoo/comm/discovery"
 	"github.com/eliaszoo/zoo/comm/util"
 	"github.com/eliaszoo/zoo/comm/log"
 )
@@ -23,9 +24,12 @@ type Peer struct {
 }
 
 type Gate struct {
-	network.TCPServer
+	tcpServer   network.TCPServer
 	opts 		*Options
 	apps 		[]Backend
+	discovery	*d.Master
+
+	util.WaitGroupWrapper
 }
 
 func New(options *Options) *Gate {
@@ -42,6 +46,9 @@ func (g *Gate) getOpts() *Options {
 }
 
 func (g *Gate) Main() error {
+	g.Wrap(g.tcpServer.Run())
+	g.Wrap(g.discovery.Watch())
+
 	return nil
 }
 

@@ -28,7 +28,7 @@ func (s *TCPServer) getOpts() *TCPOptions {
 	return s.opts
 }
 
-func (s *TCPServer) run() {
+func (s *TCPServer) Run() {
 	var err error
 	s.listener, err = net.Listen("tcp", s.getOpts().TCPAddr)
 	if nil != err {
