@@ -3,10 +3,12 @@ package gate
 import (
 	"net"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
-	"comm/network"
-	"comm/util"
+	"github.com/eliaszoo/zoo/comm/network"
+	"github.com/eliaszoo/zoo/comm/util"
+	"github.com/eliaszoo/zoo/comm/log"
 )
 
 type PeerInfo struct {
@@ -18,19 +20,12 @@ type Peer struct {
 	conn 		net.Conn
 	state 		int32
 	PeerInfo 	
-	util.WaitGroupWrapper
-}
-
-type Client interface {
-
 }
 
 type Gate struct {
-	listener 	net.Listener
-	clients 	map[int64]Client
-	peers 		atomic.Value
+	network.TCPServer
 	opts 		*Options
-
+	apps 		[]Backend
 }
 
 func New(options *Options) *Gate {
@@ -47,17 +42,35 @@ func (g *Gate) getOpts() *Options {
 }
 
 func (g *Gate) Main() error {
-	var err error
-	g.listener, err = net.Listen("tcp", g.getOpts().TCPAddr)
-	if nil != err {
-		return fmt.Errorf("listen (%s) failed - %s", g.getOpts().TCPAddr, err)
-	}
-
-	
-	g.Wrap(network.TCPServer(g.listener, ))
-	
-
 	return nil
 }
 
-func (g *Gate)
+func (g *Gate) newAgent(conn net.conn) *agent {
+	return &agent {
+		conn,
+		g,
+		g.getBackend(),
+	}
+}
+
+func (g *Gate) getBackend() *Backend {
+	minIndex := 0
+	minRate := 100
+	for i, backend := range g.apps {
+		if !backend.alive() {
+			continue
+		}
+
+		idleRate := backend.idleRate()
+		if idleRate < 25 {
+			return &backend
+		}
+
+		if idleRate < minRate {
+			minIndex = i
+			minRate = idleRate
+		}
+	}
+
+	return &g.apps[minIndex]
+}
