@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
+	"encoding/json"
 
 	"github.com/eliaszoo/zoo/comm/network"
 	d "github.com/eliaszoo/zoo/comm/discovery"
@@ -13,7 +15,9 @@ import (
 )
 
 type PeerInfo struct {
-
+	Addr 		string  `json:"addr"`
+	ConnNum 	int32	`json:"conn_num"`
+	ConnNumMax 	int32	`json:"conn_num_max"`
 }
 
 type Peer struct {
@@ -80,4 +84,12 @@ func (g *Gate) getBackend() *Backend {
 	}
 
 	return &g.apps[minIndex]
+}
+
+func (g *Gate) lookupLoop() {
+	ticker := time.Tick(15 * time.Second)
+	for {
+		nodes := g.discovery.GetNodes()
+		json.Unmarsh()
+	}
 }
