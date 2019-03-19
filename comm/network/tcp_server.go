@@ -3,6 +3,7 @@ package network
 import (
 	"net"
 	"sync"
+	""
 	"runtime"
 
 	"github.com/eliaszoo/zoo/comm/log"
@@ -11,8 +12,7 @@ import (
 
 type TCPServer struct {
 	listener 	net.Listener
-	conns   	map[net.Conn]struct{}
-	mutexConns  sync.Mutex
+	connNum 	int32
 	opts 		*TCPOptions
 	wg 			util.WaitGroupWrapper
 }
@@ -26,6 +26,10 @@ func NewTCPServer(options *TCPOptions) *TCPServer {
 
 func (s *TCPServer) getOpts() *TCPOptions {
 	return s.opts
+}
+
+func (s *TCPServer) getConnNum() int {
+	return s.connNum
 }
 
 func (s *TCPServer) Run() {
@@ -48,20 +52,13 @@ func (s *TCPServer) Run() {
 				break
 			}
 
-			s.handle(clientConn)
-		}
+			if s.getConnNum() >= s.getOpts().MaxConnNum {
+				log.Logf(log.WARN, "too many connections")
+				clientConn.Close()
+				continue
+			}
+
+			tcpConn := newTCPConn(clientConn, 100, nil)
+		}	
 	})
-}
-
-func (s *TCPServer) handle(conn net.Conn) {
-	s.mutexConns.Lock()
-	defer s.mutexConns.Unlock()
-
-	if len(s.conns) >= s.getOpts().MaxConnNum {
-		conn.Close()
-		log.Logf(log.WARN, "too many connections")
-		return
-	}
-
-	
 }

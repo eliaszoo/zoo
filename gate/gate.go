@@ -8,10 +8,10 @@ import (
 	"time"
 	"encoding/json"
 
-	"github.com/eliaszoo/zoo/comm/network"
-	d "github.com/eliaszoo/zoo/comm/discovery"
-	"github.com/eliaszoo/zoo/comm/util"
-	"github.com/eliaszoo/zoo/comm/log"
+	"comm/network"
+	d "comm/discovery"
+	"comm/util"
+	"comm/log"
 )
 
 type PeerInfo struct {
@@ -90,6 +90,16 @@ func (g *Gate) lookupLoop() {
 	ticker := time.Tick(15 * time.Second)
 	for {
 		nodes := g.discovery.GetNodes()
-		json.Unmarsh()
+		for k, node := range nodes {
+			peerInfo := &PeerInfo{}
+			err := json.Unmarshal(node, peerInfo)
+			if nil != err{
+				log.Logf(log.WARN, "unmarshal peer failed %v", k)
+				continue
+			}
+
+			peerInfo.
+		}
+		
 	}
 }
