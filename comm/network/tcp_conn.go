@@ -15,7 +15,7 @@ type TCPConn struct {
 	msgParser *MsgParser
 }
 
-func newTCPConn(conn net.Conn, pendingWriteNum int, msgParser *MsgParser) *TCPConn {
+func newTCPConn(conn net.Conn, pendingWriteNum int32, msgParser *MsgParser) *TCPConn {
 	tcpConn := new(TCPConn)
 	tcpConn.conn = conn
 	tcpConn.writeChan = make(chan []byte, pendingWriteNum)

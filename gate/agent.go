@@ -1,11 +1,11 @@
 package gate
 
 import (
-	"net"
+	"comm/network"
 )
 
 type agent struct {
-	conn     network.Conn
+	conn     network.TCPConn
 	gate     *Gate
 	backend  *Backend
 }

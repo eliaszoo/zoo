@@ -28,7 +28,7 @@ type Peer struct {
 }
 
 type Gate struct {
-	tcpServer   network.TCPServer
+	tcpServer   *network.TCPServer
 	opts 		*Options
 	apps 		[]Backend
 	discovery	*d.Master
@@ -56,7 +56,7 @@ func (g *Gate) Main() error {
 	return nil
 }
 
-func (g *Gate) newAgent(conn net.conn) *agent {
+func (g *Gate) newAgent(conn *network.TCPConn) *agent {
 	return &agent {
 		conn,
 		g,

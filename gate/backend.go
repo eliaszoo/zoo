@@ -2,11 +2,14 @@ package gate
 
 import (
 	"sync/atomic"
+
+	"comm/network"
 )
 
 type Backend struct {
 	connNumMax 		int32
 	connNum 		int32
+	client 			*network.TCPClient
 }
 
 func (b *Backend) getConnNum() int32 {

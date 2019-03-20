@@ -3,33 +3,33 @@ package network
 import (
 	"net"
 	"sync"
-	""
 	"runtime"
 
-	"github.com/eliaszoo/zoo/comm/log"
-	"github.com/eliaszoo/zoo/comm/util"
+	"comm/log"
+	"comm/util"
 )
 
 type TCPServer struct {
 	listener 	net.Listener
-	connNum 	int32
 	opts 		*TCPOptions
+	newAgent 	func(*TCPConn) Agent
+	conns 		map[net.Conn]struct{}
 	wg 			util.WaitGroupWrapper
+	wgConns 	util.WaitGroupWrapper
+
+	sync.Mutex
 }
 
-func NewTCPServer(options *TCPOptions) *TCPServer {
-	s := &TCPServer {
+func NewTCPServer(options *TCPOptions, newAgentFun func(*TCPConn) Agent) *TCPServer {
+	return &TCPServer {
+		opts: options,
+		newAgent: newAgentFun,
+		conns: make(map[net.Conn]struct{}),
 	}
-
-	return s
 }
 
 func (s *TCPServer) getOpts() *TCPOptions {
 	return s.opts
-}
-
-func (s *TCPServer) getConnNum() int {
-	return s.connNum
 }
 
 func (s *TCPServer) Run() {
@@ -52,13 +52,43 @@ func (s *TCPServer) Run() {
 				break
 			}
 
-			if s.getConnNum() >= s.getOpts().MaxConnNum {
+			s.Lock()
+			if len(s.conns) >= s.getOpts().MaxConnNum {
+				s.Unlock()
 				log.Logf(log.WARN, "too many connections")
 				clientConn.Close()
 				continue
 			}
 
-			tcpConn := newTCPConn(clientConn, 100, nil)
+			s.conns[clientConn] = struct{}{}
+			s.Unlock()
+
+			tcpConn := newTCPConn(clientConn, s.getOpts().PendingWriteNum, nil)
+			agent := s.newAgent(tcpConn)
+			s.wgConns.Wrap(func() {
+				agent.Run()
+
+				tcpConn.Close()
+				s.Lock()
+				delete(s.conns, clientConn)
+				s.Unlock()
+
+				agent.OnClose()
+			})
 		}	
 	})
+}
+
+func (s *TCPServer) Close() {
+	s.listener.Close()
+	s.wg.Wait()
+	
+	s.Lock()
+	for conn := range s.conns {
+		conn.Close()
+	}
+	s.conns = nil
+	s.Unlock()
+
+	s.wgConns.Wait()
 }

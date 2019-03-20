@@ -4,120 +4,90 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"comm/util"
 )
 
 type TCPClient struct {
-	sync.Mutex
-	Addr            string
-	ConnNum         int
-	ConnectInterval time.Duration
-	PendingWriteNum int
-	AutoReconnect   bool
-	NewAgent        func(*TCPConn) Agent
-	conns           ConnSet
-	wg              sync.WaitGroup
+	opts 			*TCPClientOptions
+	newAgent        func(*TCPConn) Agent
+	conns           map[net.Conn]struct{}
+	wg              util.WaitGroupWrapper
 	closeFlag       bool
 
-	// msg parser
-	LenMsgLen    int
-	MinMsgLen    uint32
-	MaxMsgLen    uint32
-	LittleEndian bool
-	msgParser    *MsgParser
+	sync.Mutex
 }
 
-func (client *TCPClient) Start() {
-	client.init()
-
-	for i := 0; i < client.ConnNum; i++ {
-		client.wg.Add(1)
-		go client.connect()
+func (c *TCPClient) NewTCPClient(options *TCPClientOptions, newAgentFun func(*TCPConn) Agent) *TCPClient {
+	return &TCPClient {
+		opts: options,
+		newAgent: newAgentFun,
+		conns: make(map[net.Conn]struct{}),
 	}
 }
 
-func (client *TCPClient) init() {
-	client.Lock()
-	defer client.Unlock()
-
-	if client.ConnNum <= 0 {
-		client.ConnNum = 1
-	}
-	if client.ConnectInterval <= 0 {
-		client.ConnectInterval = 3 * time.Second
-	}
-	if client.PendingWriteNum <= 0 {
-		client.PendingWriteNum = 100
-	}
-	if client.NewAgent == nil {
-	}
-	if client.conns != nil {
-	}
-
-	client.conns = make(ConnSet)
-	client.closeFlag = false
-
-	// msg parser
-	msgParser := NewMsgParser()
-	msgParser.SetMsgLen(client.LenMsgLen, client.MinMsgLen, client.MaxMsgLen)
-	msgParser.SetByteOrder(client.LittleEndian)
-	client.msgParser = msgParser
+func (c *TCPClient) getOpts() *TCPClientOptions {
+	return c.opts
 }
 
-func (client *TCPClient) dial() net.Conn {
+func (c *TCPClient) Run() {
+	for i := 0; i < c.getOpts().ConnNum; i ++ {
+		c.wg.Wrap(c.connect)
+	}
+}
+
+func (c *TCPClient) dial() net.Conn {
 	for {
-		conn, err := net.Dial("tcp", client.Addr)
-		if err == nil || client.closeFlag {
+		conn, err := net.Dial("tcp", c.opts.ServerAddr)
+		if err == nil || c.closeFlag {
 			return conn
 		}
 
-		time.Sleep(client.ConnectInterval)
+		time.Sleep(c.opts.ConnectInterval)
 		continue
 	}
 }
 
-func (client *TCPClient) connect() {
-	defer client.wg.Done()
-
+func (c *TCPClient) connect() {
 reconnect:
-	conn := client.dial()
+	conn := c.dial()
 	if conn == nil {
 		return
 	}
 
-	client.Lock()
-	if client.closeFlag {
-		client.Unlock()
+	c.Lock()
+	if c.closeFlag {
+		c.Unlock()
 		conn.Close()
 		return
 	}
-	client.conns[conn] = struct{}{}
-	client.Unlock()
+	c.conns[conn] = struct{}{}
+	c.Unlock()
 
-	tcpConn := newTCPConn(conn, client.PendingWriteNum, client.msgParser)
-	agent := client.NewAgent(tcpConn)
+	tcpConn := newTCPConn(conn, c.opts.PendingWriteNum, nil)
+	agent := c.newAgent(tcpConn)
 	agent.Run()
 
-	// cleanup
 	tcpConn.Close()
-	client.Lock()
-	delete(client.conns, conn)
-	client.Unlock()
+	c.Lock()
+	delete(c.conns, conn)
+	c.Unlock()
 	agent.OnClose()
 
-	if client.AutoReconnect {
-		time.Sleep(client.ConnectInterval)
+	if c.opts.AutoReconnect {
+		time.Sleep(c.opts.ConnectInterval)
 		goto reconnect
 	}
 }
 
-func (client *TCPClient) Close() {
-	client.Lock()
-	client.closeFlag = true
-	for conn := range client.conns {
+func (c *TCPClient) Close() {
+	c.Lock()
+	c.closeFlag = true
+	for conn := range c.conns {
 		conn.Close()
 	}
-	client.conns = nil
-	client.Unlock()
+	c.conns = nil
+	c.Unlock()
 
-	client.wg.Wait()
+	c.wg.Wait()
 }
