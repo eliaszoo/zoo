@@ -28,10 +28,12 @@ type Peer struct {
 }
 
 type Gate struct {
-	tcpServer   *network.TCPServer
-	opts 		*Options
-	apps 		[]Backend
-	discovery	*d.Master
+	tcpServer   	*network.TCPServer
+	opts 			*Options
+	apps 			[]Backend
+	discovery		*d.Master
+	clientAgents	map[int64]*agent
+	clientNo 		int64
 
 	util.WaitGroupWrapper
 }
@@ -52,6 +54,7 @@ func (g *Gate) getOpts() *Options {
 func (g *Gate) Main() error {
 	g.Wrap(g.tcpServer.Run())
 	g.Wrap(g.discovery.Watch())
+
 
 	return nil
 }
@@ -102,4 +105,16 @@ func (g *Gate) lookupLoop() {
 		}
 		
 	}
+}
+
+func (g *Gate) onNewAgent(a *agent) {
+	g.clientNo ++
+	a.id = g.clientNo
+	g.clientAgents[g.clientNo] = a
+}
+
+func (g *Gate) onAgentClose(a *agent) {
+	delete(g.clientAgents, a.id)
+
+	
 }

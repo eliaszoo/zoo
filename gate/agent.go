@@ -5,6 +5,7 @@ import (
 )
 
 type agent struct {
+	id 		int64
 	conn     network.TCPConn
 	gate     *Gate
 	backend  *Backend
