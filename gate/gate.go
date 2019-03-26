@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 
 	"comm/network"
-	d "comm/discovery"
+	d "comm/registry"
 	"comm/util"
 	"comm/log"
 )
@@ -116,5 +116,5 @@ func (g *Gate) onNewAgent(a *agent) {
 func (g *Gate) onAgentClose(a *agent) {
 	delete(g.clientAgents, a.id)
 
-	
+
 }
